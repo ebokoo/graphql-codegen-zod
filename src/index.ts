@@ -1,5 +1,5 @@
 import { PluginFunction, PluginValidateFn, Types } from '@graphql-codegen/plugin-helpers'
-import { GraphQLSchema, parse, Kind, InputObjectTypeDefinitionNode } from 'graphql'
+import { GraphQLSchema, parse, Kind, InputObjectTypeDefinitionNode, GraphQLInputObjectType, GraphQLNonNull, GraphQLList, GraphQLField, GraphQLInputField } from 'graphql'
 
 export interface ZodPluginConfig {
   /**
@@ -56,18 +56,21 @@ export const plugin: PluginFunction<ZodPluginConfig> = (
 
   // Find all Input types from schema
   const typeMap = schema.getTypeMap()
-  const inputTypes: Array<{ name: string; node: InputObjectTypeDefinitionNode }> = []
+  const inputTypes: Array<{ name: string; node: InputObjectTypeDefinitionNode | null; graphqlType: GraphQLInputObjectType }> = []
 
   for (const typeName of Object.keys(typeMap)) {
     const type = typeMap[typeName]
     // Skip internal types
     if (typeName.startsWith('__')) continue
 
-    // Check if it has an AST node and is an Input type
-    if (type.astNode && type.astNode.kind === Kind.INPUT_OBJECT_TYPE_DEFINITION) {
+    // Check if it's a GraphQLInputObjectType (works for both introspection and SDL schemas)
+    // Use constructor.name to avoid instanceof issues with module resolution
+    const constructorName = type.constructor?.name
+    if (constructorName === 'GraphQLInputObjectType') {
       inputTypes.push({
         name: typeName,
-        node: type.astNode as InputObjectTypeDefinitionNode,
+        node: (type.astNode as InputObjectTypeDefinitionNode) || null,
+        graphqlType: type as GraphQLInputObjectType,
       })
     }
   }
@@ -75,12 +78,12 @@ export const plugin: PluginFunction<ZodPluginConfig> = (
   // Group inputs by module
   const inputsByModule = new Map<string, string[]>()
 
-  for (const { name, node } of inputTypes) {
+  for (const { name, node, graphqlType } of inputTypes) {
     // Only process types ending with Input
     if (!name.endsWith('Input')) continue
 
     const moduleName = getModuleName(name)
-    const schemaCode = generateInputSchema(name, node, scalarSchemas)
+    const schemaCode = generateInputSchema(name, node, graphqlType, scalarSchemas)
 
     const existing = inputsByModule.get(moduleName) || []
     inputsByModule.set(moduleName, [...existing, schemaCode])
@@ -92,15 +95,6 @@ export const plugin: PluginFunction<ZodPluginConfig> = (
 
   // Add imports
   output += `import { z } from 'zod'\n`
-
-  // Collect all input type names for import
-  const allInputTypeNames = inputTypes
-    .filter(t => t.name.endsWith('Input'))
-    .map(t => t.name.replace(/Input$/, ''))
-
-  if (allInputTypeNames.length > 0) {
-    output += `import type { ${allInputTypeNames.join(', ')} } from '${importFrom}'\n`
-  }
 
   output += '\n'
 
@@ -134,11 +128,11 @@ function getModuleName(typeName: string): string {
     .replace(/Create|Update|Delete/gi, '')
     .toLowerCase()
 
-  // Map to module names
+  // Map to actual module names in the project
   const moduleMap: Record<string, string> = {
     'signin': 'auth',
     'signup': 'auth',
-    'user': 'auth',
+    'user': 'users',
     'password': 'auth',
     'reset': 'auth',
     'memorial': 'memorials',
@@ -147,13 +141,6 @@ function getModuleName(typeName: string): string {
     'invitation': 'invitations',
     'invoice': 'invoices',
     'contact': 'contacts',
-    'banner': 'banners',
-    'product': 'products',
-    'cart': 'carts',
-    'filter': 'filters',
-    'pagination': 'pagination',
-    'sort': 'sort',
-    'query': 'query',
   }
 
   for (const [key, module] of Object.entries(moduleMap)) {
@@ -162,27 +149,41 @@ function getModuleName(typeName: string): string {
     }
   }
 
-  return 'common'
+  // Return empty string for types that don't map to actual modules
+  // These will be grouped under an empty module name and skipped for imports
+  return ''
 }
 
 function generateInputSchema(
   typeName: string,
-  node: InputObjectTypeDefinitionNode,
+  node: InputObjectTypeDefinitionNode | null,
+  graphqlType: GraphQLInputObjectType,
   scalarSchemas: Record<string, string>
 ): string {
   const schemaName = `${typeName.replace(/Input$/, '')}InputSchema`
 
   const fields: string[] = []
 
-  for (const field of node.fields || []) {
-    const fieldName = field.name.value
-    const fieldType = generateFieldType(field.type, scalarSchemas)
-    fields.push(`    ${fieldName}: ${fieldType}`)
+  // Use astNode.fields if available, otherwise use graphqlType.getFields()
+  if (node?.fields) {
+    for (const field of node.fields) {
+      const fieldName = field.name.value
+      const fieldType = generateFieldType(field.type, scalarSchemas)
+      fields.push(`    ${fieldName}: ${fieldType}`)
+    }
+  } else {
+    // Fallback for introspection-based schemas
+    const typeFields = graphqlType.getFields()
+    for (const field of Object.values(typeFields)) {
+      const fieldName = field.name
+      const fieldType = generateFieldTypeFromField(field, scalarSchemas)
+      fields.push(`    ${fieldName}: ${fieldType}`)
+    }
   }
 
   return `export function ${schemaName}() {
   return z.object({
-${fields.join('\n')}
+${fields.join(',\n')}
   })
 }`
 }
@@ -208,12 +209,64 @@ function generateFieldType(type: any, scalarSchemas: Record<string, string>): st
     }
   }
 
-  const typeName = currentType.name.value
+  // Handle both AST nodes (with .name.value) and introspection types (with .name as string)
+  const typeName = typeof currentType.name === 'object' ? currentType.name.value : currentType.name
 
   // Check for custom scalars
   if (typeName in scalarSchemas) {
     baseType = scalarSchemas[typeName]
   } else if (typeName.endsWith('Input')) {
+    // Nested input type
+    baseType = `${typeName.replace(/Input$/, '')}InputSchema()`
+  } else if (typeName === 'JSONObject') {
+    baseType = 'z.record(z.string(), z.any())'
+  } else {
+    baseType = 'z.string()' // fallback
+  }
+
+  // Apply modifiers
+  if (isArray) {
+    baseType = `z.array(${baseType})`
+  }
+
+  if (isOptional) {
+    baseType = `${baseType}.optional()`
+  }
+
+  return baseType
+}
+
+function generateFieldTypeFromField(
+  field: GraphQLInputField,
+  scalarSchemas: Record<string, string>
+): string {
+  // Handle wrapped types (NonNull, List)
+  let baseType: string
+  let isOptional = true
+  let isArray = false
+
+  // Unwrap the type - use constructor name instead of instanceof due to module resolution issues
+  let currentType: any = field.type
+  while (currentType) {
+    const constructorName = currentType.constructor.name
+    if (constructorName === 'GraphQLNonNull') {
+      isOptional = false
+      currentType = currentType.ofType
+    } else if (constructorName === 'GraphQLList') {
+      isArray = true
+      currentType = currentType.ofType
+    } else {
+      // Named type
+      break
+    }
+  }
+
+  const typeName = currentType?.name
+
+  // Check for custom scalars
+  if (typeName && typeName in scalarSchemas) {
+    baseType = scalarSchemas[typeName]
+  } else if (typeName && typeName.endsWith('Input')) {
     // Nested input type
     baseType = `${typeName.replace(/Input$/, '')}InputSchema()`
   } else if (typeName === 'JSONObject') {
