@@ -2,6 +2,8 @@
 
 > **Generate Zod v4 validation schemas from your GraphQL Input types automatically**
 
+> **Generate Zod v4 validation schemas from your GraphQL Input types automatically**
+
 [![npm version](https://img.shields.io/npm/v/@graphql-codegen/zod)](https://www.npmjs.com/package/@graphql-codegen/zod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
