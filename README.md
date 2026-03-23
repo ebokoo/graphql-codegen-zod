@@ -1,15 +1,15 @@
-# @graphql-codegen/zod
+# @softonus/zod
 
 > **Generate Zod v4 validation schemas from your GraphQL Input types automatically**
 
 > **Generate Zod v4 validation schemas from your GraphQL Input types automatically**
 
-[![npm version](https://img.shields.io/npm/v/@graphql-codegen/zod)](https://www.npmjs.com/package/@graphql-codegen/zod)
+[![npm version](https://img.shields.io/npm/v/@softonus/zod)](https://www.npmjs.com/package/@softonus/zod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What is this?
 
-`@graphql-codegen/zod` is a GraphQL Code Generator plugin that **automatically generates Zod v4 validation schemas** from your GraphQL Input types.
+`@softonus/zod` is a GraphQL Code Generator plugin that **automatically generates Zod v4 validation schemas** from your GraphQL Input types.
 
 It's the **modern replacement for `typescript-validation-schema`** which has compatibility issues with Zod v4.
 
@@ -23,7 +23,7 @@ It's the **modern replacement for `typescript-validation-schema`** which has com
 ## Quick Start
 
 ```bash
-npm install @graphql-codegen/zod
+npm install @softonus/zod
 ```
 
 ```yaml
@@ -92,7 +92,7 @@ function CreateUserForm() {
 
 ## Comparison
 
-| Feature | typescript-validation-schema | @graphql-codegen/zod |
+| Feature | typescript-validation-schema | @softonus/zod |
 |---------|------------------------------|---------------------|
 | Zod v4 support | ❌ Partial | ✅ Full |
 | Type inference | ⚠️ Limited | ✅ Full |

@@ -1,5 +1,5 @@
 {
-  "name": "@graphql-codegen/zod",
+  "name": "@softonus/zod",
   "version": "1.0.0",
   "description": "GraphQL Code Generator plugin that generates Zod v4 validation schemas with full type inference. Modern replacement for typescript-validation-schema",
   "keywords": [
