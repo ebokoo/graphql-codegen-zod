@@ -1,0 +1,64 @@
+{
+  "name": "@ebokoo/zod",
+  "version": "1.0.0",
+  "description": "GraphQL Code Generator plugin that generates Zod v4 validation schemas with full type inference. Modern replacement for typescript-validation-schema",
+  "keywords": [
+    "graphql",
+    "codegen",
+    "graphql-codegen",
+    "zod",
+    "zod-v4",
+    "validation",
+    "schema",
+    "zod-schema",
+    "typescript",
+    "typed",
+    "auto-generated-schema",
+    "graphql-validation",
+    "input-validation",
+    "react-hook-form",
+    "zod-resolver",
+    "type-safety",
+    "type-safe",
+    "replace-typescript-validation-schema"
+  ],
+  "homepage": "https://github.com/ebokoo/graphql-codegen-zod#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ebokoo/graphql-codegen-zod.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ebokoo/graphql-codegen-zod/issues"
+  },
+  "author": {
+    "name": "Ebo",
+    "email": "ebo@softonus.com",
+    "url": "https://github.com/ebokoo"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "graphql": ">=16.0.0",
+    "zod": ">=3.25.0"
+  },
+  "dependencies": {
+    "@graphql-codegen/plugin-helpers": "^5.0.0",
+    "@graphql-codegen/visitor-plugin-common": "^5.0.0",
+    "@graphql-tools/utils": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "graphql": "^16.13.1",
+    "typescript": "^5.0.0",
+    "zod": "^3.25.0"
+  }
+}
