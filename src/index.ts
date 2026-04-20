@@ -4,6 +4,7 @@ import {
   parse,
   Kind,
   InputObjectTypeDefinitionNode,
+  InputValueDefinitionNode,
   GraphQLInputObjectType,
   GraphQLNonNull,
   GraphQLList,
@@ -15,6 +16,8 @@ import {
   EnumValueDefinitionNode,
   FieldDefinitionNode,
   GraphQLField,
+  GraphQLInputType,
+  GraphQLNamedType,
 } from 'graphql'
 
 export interface ZodPluginConfig {
@@ -257,6 +260,28 @@ function getModuleName(typeName: string): string {
   return ''
 }
 
+function serializeDefaultValue(value: any): string | null {
+  if (value === null || value === undefined) return null
+
+  switch (value.kind) {
+    case 'BooleanValue':
+      return String(value.value)
+    case 'IntValue':
+      return value.value
+    case 'FloatValue':
+      return value.value
+    case 'StringValue':
+    case 'EnumValue':
+      return JSON.stringify(value.value)
+    case 'ListValue':
+      return `[${value.values.map(serializeDefaultValue).join(', ')}]`
+    case 'ObjectValue':
+      return `{${value.fields.map((f: any) => `${f.name.value}: ${serializeDefaultValue(f.value)}`).join(', ')}}`
+    default:
+      return null
+  }
+}
+
 function generateInputSchema(
   typeName: string,
   node: InputObjectTypeDefinitionNode | null,
@@ -274,13 +299,13 @@ function generateInputSchema(
       const fieldName = field.name.value
       const description = field.description?.value
       const fieldType = generateFieldTypeFromAST(field.type, scalarSchemas, enumTypes, refinements, fieldName)
-      const defaultValue = field.defaultValue !== undefined ? String(field.defaultValue) : null
+      const defaultValue = field.defaultValue !== undefined ? serializeDefaultValue(field.defaultValue) : null
 
       let fieldCode = `    ${fieldName}: ${fieldType}`
       if (description) {
         fieldCode = `    ${fieldName}: ${fieldType}.describe(${JSON.stringify(description)})`
       }
-      if (defaultValue) {
+      if (defaultValue !== null) {
         fieldCode += `.default(${defaultValue})`
       }
 
